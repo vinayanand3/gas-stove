@@ -460,7 +460,7 @@ render = (st, dt, calm) => {
   const flow = Math.min(1, sim.flow);
   fx.phase += dt * 2.2 * flow * (calm ? 0 : 1);
   fx.headPhase += dt * 1.6 * flow * (calm ? 0 : 1);
-  if (st.fired) { fx.sparkAt = clock; fx.seed = Math.random() * 100; }
+  if (st.fired) { fx.sparkAt = clock; fx.seed = (fx.seed * 7.31 + 3.7) % 97; }
   settle(fx.lit, sim.lit ? 1 : 0, dt, sim.lit ? 0.06 : 0.12, calm);
   settle(fx.cone, st.cone * 1000 * (sim.lit ? 1 : 0.6), dt, 0.18, calm);
   settle(fx.outer, st.outer * 1000, dt, 0.18, calm);

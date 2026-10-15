@@ -99,8 +99,8 @@ for (const theme of ["light", "dark"]) {
   console.log("wrote", name, `${(page.length / 1024).toFixed(0)} KB`);
 }
 
-// ---------- the same page as an Artifact body: follows the viewer's theme, no document skeleton of its own ----------
-{
+// ---------- with --artifact, the same page as an Artifact body: follows the viewer's theme, no document skeleton of its own ----------
+if (process.argv.includes("--artifact")) {
   const page = readFileSync(join(HERE, "gas-burner.html"), "utf8");
   const head = page.match(/<head>([\s\S]*?)<\/head>/)[1].replace(/<meta[^>]*>/g, "").replace(/<title>[^<]*<\/title>/, "");
   const inner = page.match(/<body[^>]*>([\s\S]*)<\/body>/)[1];
