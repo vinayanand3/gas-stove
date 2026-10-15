@@ -1,0 +1,23 @@
+{
+  "name": "gas-burner",
+  "version": "1.0.0",
+  "description": "An interactive engineering figure of a domestic gas range burner, from ignition to flame, built with the [Anatomy](https://github.com/wheresryan22/anatomy) skill. Work in progress.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vinayanand3/gas-stove.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vinayanand3/gas-stove/issues"
+  },
+  "homepage": "https://github.com/vinayanand3/gas-stove#readme",
+  "dependencies": {
+    "polygon-clipping": "^0.15.7"
+  }
+}
