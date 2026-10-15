@@ -28,17 +28,52 @@ const view = (name, back, front, extra = "") => `<div class="gb-view" data-view=
 const stage = `<div class="gb-stage" tabindex="0" role="slider" aria-label="Gas burner. Use the stage tabs or the left and right arrow keys to turn the knob; drag to pan, wheel to zoom." aria-valuemin="0" aria-valuemax="${M.KNOB_MAX}" aria-valuenow="0" aria-valuetext="Off">
   ${view("section", secBack, secFront)}
   ${view("ortho", ORT.back, ORT.front)}
-  <div class="gb-inset" aria-hidden="true"><div class="gb-inset-k">Orifice pressure</div><div class="gb-inset-v"><span data-inset>0.00</span><small>in. w.c.</small><i class="gb-bar"><b data-bar></b></i></div></div>
+  <div class="gb-inset" aria-hidden="true"><div class="gb-inset-k">Heat output</div><div class="gb-inset-v"><span data-inset>0.00</span><small>kW</small><i class="gb-bar"><b data-bar></b></i></div></div>
   <div class="gb-toggle" role="group" aria-label="View"><button type="button" data-set-view="section" aria-pressed="true">Section</button><button type="button" data-set-view="ortho" aria-pressed="false">Ortho</button></div>
   <div class="gb-live" aria-live="polite" data-live></div>
 </div>`;
 
-const TABS = ["OFF", "LITE", "HI", "MED", "LO"];
-const controls = `<div class="gb-foot"><span class="gb-hint">Click a stage or ← → to turn the knob · wheel zooms, drag pans</span><span class="gb-readout" data-readout>OFF · 0.00 kW</span></div>
-<div class="gb-tabs" role="tablist">${TABS.map((t) => `<button type="button" role="tab" data-stage="${t}" aria-selected="${t === "OFF"}">${t}</button>`).join("")}</div>
-<label class="gb-shutter"><span>Air shutter</span><input type="range" min="0.1" max="1" step="0.01" value="1" data-shutter aria-label="Air shutter opening"><output data-shutter-out>100 %</output></label>`;
+// ---------- the knob control: drag it, or tap a setting round it ----------
+const deg2xy = (d, r) => [-r * Math.sin((d * Math.PI) / 180), -r * Math.cos((d * Math.PI) / 180)];
+const f2 = (v) => +v.toFixed(2);
+function dialSvg() {
+  // flame-size band round the scale: its width follows the valve's flow at each knob angle
+  const band = [];
+  for (let d = 36; d <= M.KNOB_MAX; d += 3) band.push(deg2xy(d, 58 + 7 * M.flowFraction(d)));
+  for (let d = M.KNOB_MAX; d >= 36; d -= 3) band.push(deg2xy(d, 57));
+  let ticks = "";
+  for (let d = 0; d <= M.KNOB_MAX; d += 15) { const [x0, y0] = deg2xy(d, 50); const [x1, y1] = deg2xy(d, d % 45 === 0 ? 55 : 53); ticks += `M${f2(x0)} ${f2(y0)}L${f2(x1)} ${f2(y1)}`; }
+  const sparkArc = (() => { const pts = []; for (let d = M.SWITCH[0]; d <= M.SWITCH[1]; d += 2) pts.push(deg2xy(d, 47)); return "M" + pts.map(([x, y]) => `${f2(x)} ${f2(y)}`).join("L"); })();
+  const labels = [["OFF", 0], ["LITE", M.DETENTS.LITE], ["HI", M.DETENTS.HI], ["MED", M.DETENTS.MED], ["LO", M.DETENTS.LO]].map(([t, d]) => {
+    const [x, y] = deg2xy(d, 76);
+    const anchor = Math.abs(x) < 8 ? "middle" : x < 0 ? "end" : "start";
+    return `<g class="dl-stop" data-stage="${t}" role="button" tabindex="-1" aria-label="Turn to ${t}"><circle cx="${f2(x)}" cy="${f2(y)}" r="13" class="dl-hit"/><text x="${f2(x + (anchor === "end" ? 9 : anchor === "start" ? -9 : 0))}" y="${f2(y + 4)}" text-anchor="${anchor}">${t}</text></g>`;
+  }).join("");
+  let knurl = "";
+  for (let i = 0; i < 48; i++) { const a = (i / 48) * Math.PI * 2; knurl += `M${f2(40 * Math.cos(a))} ${f2(40 * Math.sin(a))}L${f2(43 * Math.cos(a))} ${f2(43 * Math.sin(a))}`; }
+  return `<svg class="dl-svg" viewBox="-104 -96 208 192" aria-hidden="true">
+  <path class="dl-band" d="M${band.map(([x, y]) => `${f2(x)} ${f2(y)}`).join("L")}Z"/>
+  <path class="dl-tick" d="${ticks}"/><path class="dl-spark" d="${sparkArc}"/>
+  ${labels}
+  <g class="dl-knob" data-knob><circle r="44" class="dl-skirt"/><path class="dl-knurl" d="${knurl}"/><circle r="38" class="dl-face"/><rect x="-7" y="-36" width="14" height="72" rx="6" class="dl-grip"/><circle cx="0" cy="-27" r="2.6" class="dl-point"/></g>
+</svg>`;
+}
+const STEPS = [
+  ["Push and turn", "The knob only turns when you push it in, so a bump can't switch the gas on."],
+  ["Valve opens", "The brass plug turns and lines its hole up with the gas supply. Gas flows to the orifice."],
+  ["Spark clicks", "At LITE a cam on the stem closes the spark switch. The electrode sparks twice a second."],
+  ["Gas meets air", "The gas jet drags air in behind it, and the two mix in the tube on the way to the burner."],
+  ["Flame catches", "Once the mixture reaches the ports, the next spark lights it and the flame runs round the ring."],
+  ["Set the heat", "Turning on toward LO narrows the valve: less gas, shorter flames, less heat."],
+];
+const controls = `<div class="gb-foot"><span class="gb-hint">Drag the knob, or tap a setting · wheel zooms the drawing</span><span class="gb-readout" data-readout>OFF · 0.00 kW</span></div>
+<div class="gb-control">
+  <div class="gb-dial" tabindex="0" role="slider" aria-label="Stove knob. Drag to turn, or use the arrow keys. Space jumps between OFF and LITE." aria-valuemin="0" aria-valuemax="${M.KNOB_MAX}" aria-valuenow="0" aria-valuetext="Off">${dialSvg()}</div>
+  <div class="gb-explain"><p class="gb-now" data-now>Off. The valve is shut, so no gas reaches the burner.</p>
+  <ol class="gb-steps">${STEPS.map(([t, d], i) => `<li data-step="${i}"><b>${t}</b><span>${d}</span></li>`).join("")}</ol></div>
+</div>`;
 
-const caption = "A natural-gas range burner on a test base, cut down its centre line. Push and turn the knob to LITE: the brass plug valve opens and a cam on the stem closes the spark switch. Gas at 4 in. w.c. leaves the 1.45 mm orifice as a jet that drags primary air in through the shutter, and the venturi mixes them on the way to the head. When the mixture reaches the ports the next spark lights it, and the flame runs round the ring. At HI the burner gives about 2.6 kW (8,800 Btu/h) with half its air premixed; close the shutter and the flame turns lazy and yellow-tipped. Lumped model: orifice flow and valve throttling are textbook, entrainment and flame size are fitted approximations.";
+const caption = "A natural-gas range burner on a test base, shown cut down its centre line (Section) and whole (Ortho). Push and turn the knob to LITE: the brass plug valve opens and a cam on the stem closes the spark switch. Gas at 4 in. w.c. leaves a 1.45 mm orifice as a jet that drags air in behind it, and the tube mixes them on the way to the burner head. When the mixture reaches the ports the next spark lights it and the flame runs round the ring. Turning on from HI to LO narrows the valve, from about 2.6 kW (8,800 Btu/h) down to a 0.4 kW simmer. Lumped model: orifice flow and valve throttling are textbook; air entrainment and flame size are fitted approximations.";
 
 const body = `<header class="gb-head"><h1>Gas Burner</h1><p>Ignition, gas flow and combustion in a kitchen range burner</p></header>
 <figure class="iso-figure gb"><div class="iso-plate">${stage}${controls}</div><figcaption class="iso-legend"><span class="iso-caption">${caption}</span></figcaption></figure>`;

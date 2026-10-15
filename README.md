@@ -9,7 +9,7 @@ It follows the real sequence: push and turn the knob to LITE, the plug valve ope
 - **SECTION**: a side elevation cut on the burner's centre plane, with hatched cut faces by material and labels on leaders. A WebGL layer shows the amber gas jet, blue entrained air through the shutter window, the mixture rising through the head, the flames at the ports and the spark.
 - **ORTHO**: the whole rig in isometric on its test base: knob and panel with detent marks, valve hung from the manifold with its regulator, orifice hood in the shutter collar, venturi under the cooktop, burner head with ports, cap and electrode in the drip bowl, spark module and leads. Flames are drawn per port in the same camera, hidden behind the crown and cap.
 
-Controls: stage tabs OFF · LITE · HI · MED · LO (or ← →, Space toggles LITE), an air-shutter slider, wheel to zoom and drag to pan, double-click to reset. An inset reads the orifice pressure; the readout gives phase, kW, Btu/h and primary air. Turn straight past LITE and it won't light: the spark needs the mixture to have reached the ports, just as on a real range.
+Controls: a stove knob you drag (or tap OFF · LITE · HI · MED · LO round it, or use ← → and Space), wheel to zoom and drag to pan, double-click to reset. Beside the knob a panel says in plain words what is happening now and steps through the sequence; an inset shows heat output and the readout gives phase, valve opening, kW and Btu/h. Turn straight past LITE and it won't light: the spark needs the mixture to have reached the ports, just as on a real range.
 
 ## Files
 

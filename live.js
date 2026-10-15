@@ -48,17 +48,42 @@ function tourAt(t) {
 // ---------- readout ----------
 const readout = $("[data-readout]");
 const inset = $("[data-inset]"), bar = $("[data-bar]");
-const tabs = [...root.querySelectorAll("[data-stage]")];
-let lastSay = "";
+const dial = $(".gb-dial"), dialKnob = $("[data-knob]");
+const nowEl = $("[data-now]");
+const steps = [...root.querySelectorAll("[data-step]")];
+let lastSay = "", lastNow = "", lastStep = -2;
+const pct = (v) => Math.round(v * 100);
+function stepOf(theta, st) {
+  if (theta < 12 && !sim.lit) return theta > 1 || push.x > 0.5 ? 0 : -1;
+  if (sim.lit) return switchClosed(theta) || theta < 106 ? 4 : 5;
+  if (st.f <= 0) return 0;
+  if (switchClosed(theta)) return sim.fill < 1 ? 3 : 4;
+  return theta < D.detents.LITE ? 1 : 2;
+}
+function nowOf(theta, st) {
+  const kw = (st.power / 1000).toFixed(2);
+  if (!sim.lit && st.f <= 0) return theta > 1 || push.x > 0.5 ? "Pushed in and turning. The valve is still shut; gas starts at about a third of the way to LITE." : "Off. The valve is shut, so no gas reaches the burner.";
+  if (!sim.lit && !switchClosed(theta)) return theta < D.detents.LITE ? `The valve is opening (${pct(st.f)} % of full flow). Gas is moving, but nothing lights it until the spark at LITE.` : "Gas is flowing but not lit: the knob went past LITE before the gas reached the burner. Turn back to LITE so the spark can light it.";
+  if (!sim.lit) return sim.fill < 1 ? `LITE. The spark is clicking while the gas and air make their way down the tube (${pct(Math.min(1, sim.fill))} % of the way).` : "The mixture has reached the ports. The next spark will light it.";
+  if (sim.spread < Math.PI - 0.01) return "Lit at the electrode. The flame is jumping from port to port round the ring.";
+  if (switchClosed(theta)) return `Burning at full flow, ${kw} kW. Turn the knob on to HI and the clicking stops.`;
+  const name = phaseOf(theta, sim);
+  const where = name === "turning" ? "" : `${name}. `;
+  return `${where}The valve is ${pct(st.f)} % open: ${kw} kW, about ${Math.round(st.btu).toLocaleString("en-US")} Btu/h, with blue inner cones ${(fx.cone.x).toFixed(1)} mm tall.`;
+}
 function say(st) {
   const phase = phaseOf(knob.x, sim);
-  const kw = st.power / 1000;
-  const text = `${phase} · ${kw.toFixed(2)} kW · ${Math.round(st.btu).toLocaleString("en-US")} Btu/h · air ${Math.round(st.aeration * 100)} %`;
+  const text = `${phase} · valve ${pct(st.f)} % · ${(st.power / 1000).toFixed(2)} kW · ${Math.round(st.btu).toLocaleString("en-US")} Btu/h`;
   if (text !== lastSay) { readout.textContent = text; lastSay = text; }
-  inset.textContent = st.inwc.toFixed(2);
-  bar.style.width = `${Math.min(100, (st.inwc / 4) * 100).toFixed(1)}%`;
-  const near = Object.entries(STAGES).reduce((b, e) => (Math.abs(e[1] - target) < Math.abs(b[1] - target) ? e : b));
-  tabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.stage === near[0])));
+  inset.textContent = (st.power / 1000).toFixed(2);
+  bar.style.width = `${Math.min(100, (st.power / 2592) * 100).toFixed(1)}%`;
+  const now = nowOf(knob.x, st);
+  if (now !== lastNow) { nowEl.textContent = now; lastNow = now; }
+  const si = stepOf(knob.x, st);
+  if (si !== lastStep) { steps.forEach((li, i) => { li.toggleAttribute("data-on", i === si); li.toggleAttribute("data-done", i < si); }); lastStep = si; }
+  dialKnob.setAttribute("transform", `rotate(${(-knob.x).toFixed(2)}) scale(${(1 - push.x * 0.012).toFixed(3)})`);
+  dial.toggleAttribute("data-pushed", push.x > 1.5);
+  dial.toggleAttribute("data-spark", switchClosed(knob.x));
 }
 
 // ---------- the loop ----------
@@ -89,8 +114,38 @@ new IntersectionObserver((entries) => { visible = entries[entries.length - 1].is
 
 // ---------- input ----------
 function takeOver(holdSeconds = 6) { touring = false; holdUntil = performance.now() + holdSeconds * 1000; }
-tabs.forEach((t) => t.addEventListener("click", () => { takeOver(); target = STAGES[t.dataset.stage]; describe(); run(); }));
-stage.addEventListener("keydown", (e) => {
+root.querySelectorAll(".dl-stop").forEach((t) => t.addEventListener("click", (e) => { e.stopPropagation(); takeOver(); target = STAGES[t.dataset.stage]; describe(); run(); }));
+// drag the knob: its angle from the dial's centre, counter-clockwise from the top, snapping to the detents
+let turning = null;
+function angleAt(e) {
+  const r = dial.querySelector("svg").getBoundingClientRect();
+  const cx = r.left + (r.width * 104) / 208, cy = r.top + (r.height * 96) / 192;
+  let d = (Math.atan2(-(e.clientX - cx), -(e.clientY - cy)) * 180) / Math.PI;
+  if (d < 0) d += 360;
+  return d;
+}
+dial.addEventListener("pointerdown", (e) => {
+  if (e.target.closest(".dl-stop")) return;
+  turning = { id: e.pointerId, last: angleAt(e), at: target };
+  dial.setPointerCapture(e.pointerId);
+  dial.setAttribute("data-turning", "");
+  takeOver(30); run();
+});
+dial.addEventListener("pointermove", (e) => {
+  if (!turning || e.pointerId !== turning.id) return;
+  const a = angleAt(e);
+  let d = a - turning.last;
+  if (d > 180) d -= 360; else if (d < -180) d += 360;
+  turning.last = a;
+  turning.at = Math.min(D.knobMax, Math.max(0, turning.at + d));
+  const snap = Object.values(STAGES).find((v) => Math.abs(v - turning.at) < 5);
+  target = snap ?? turning.at;
+  takeOver(30); describe(); run();
+});
+const endTurn = (e) => { if (turning && e.pointerId === turning.id) { turning = null; dial.removeAttribute("data-turning"); takeOver(); } };
+dial.addEventListener("pointerup", endTurn);
+dial.addEventListener("pointercancel", endTurn);
+function onKey(e) {
   const step_ = e.shiftKey ? 45 : 10;
   if (e.key === "ArrowRight") target = Math.min(D.knobMax, target + step_);
   else if (e.key === "ArrowLeft") target = Math.max(0, target - step_);
@@ -99,9 +154,9 @@ stage.addEventListener("keydown", (e) => {
   else if (e.key === " " || e.key === "Enter") target = target > 0 ? 0 : D.detents.LITE;
   else return;
   e.preventDefault(); takeOver(); describe(); run();
-});
-const shutterIn = $("[data-shutter]"), shutterOut = $("[data-shutter-out]");
-shutterIn.addEventListener("input", () => { shutter = +shutterIn.value; shutterOut.textContent = `${Math.round(shutter * 100)} %`; takeOver(8); run(); });
+}
+stage.addEventListener("keydown", onKey);
+dial.addEventListener("keydown", onKey);
 root.querySelectorAll("[data-set-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.setView)));
 function setView(v) {
   view = v;
@@ -111,8 +166,7 @@ function setView(v) {
 }
 function describe() {
   const name = Object.entries(STAGES).find(([, a]) => a === target)?.[0] ?? `${Math.round(target)}°`;
-  stage.setAttribute("aria-valuenow", String(Math.round(target)));
-  stage.setAttribute("aria-valuetext", `Knob at ${name}`);
+  for (const el of [stage, dial]) { el.setAttribute("aria-valuenow", String(Math.round(target))); el.setAttribute("aria-valuetext", `Knob at ${name}`); }
 }
 stage.addEventListener("pointerenter", () => { if (touring) holdUntil = performance.now() + 2500; });
 
@@ -418,7 +472,7 @@ render = (st, dt, calm) => {
   if (view === "section" && secLayer) secLayer.draw(u, calm ? 0.8 : clock);
   if (view === "ortho" && ortLayer) ortLayer.draw({ uLit: u.uLit, uSpread: u.uSpread, uCone: u.uCone, uOuter: u.uOuter, uYellow: u.uYellow, uSpark: u.uSpark, uSeed: u.uSeed }, calm ? 0.8 : clock);
 };
-window.__gb = { sim, knob, push, fx, get target() { return target; }, get touring() { return touring; }, get frame() { return frame; }, get visible() { return visible; }, setTarget: (t) => { takeOver(); target = t; run(); }, setShutter: (s) => { shutter = s; shutterIn.value = s; shutterOut.textContent = `${Math.round(s * 100)} %`; run(); } };
+window.__gb = { sim, knob, push, fx, get target() { return target; }, get touring() { return touring; }, get frame() { return frame; }, get visible() { return visible; }, setTarget: (t) => { takeOver(); target = t; run(); } };
 
 // ---------- pan and zoom: wheel zooms about the pointer, drag pans, double-click resets ----------
 const cam = { s: 1, x: 0, y: 0 };
