@@ -2,7 +2,7 @@
 
 An interactive engineering figure of a domestic gas range burner, from ignition to flame, built with the [Anatomy](https://github.com/wheresryan22/anatomy) skill.
 
-**Live:** [vinayanand3.github.io/gas-stove](https://vinayanand3.github.io/gas-stove/) (light) · [dark](https://vinayanand3.github.io/gas-stove/gas-burner-dark.html) — once GitHub Pages is enabled for this repo.
+**Live:** [vinayanand3.github.io/gas-stove](https://vinayanand3.github.io/gas-stove/) (light) · [dark](https://vinayanand3.github.io/gas-stove/gas-burner-dark.html), once GitHub Pages is enabled for this repo.
 
 It follows the real sequence: push and turn the knob to LITE, the plug valve opens and a cam on its stem closes the spark switch, gas leaves the orifice as a jet, the venturi pulls in primary air through the air shutter, the mixture reaches the ports, the electrode's spark lights it, and the flame runs round the ring. Two views:
 
