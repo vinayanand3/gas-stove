@@ -26,6 +26,15 @@ function drawSection(theta, pushed, f, sh) {
   const sq = Math.round(sh * 200) / 200;
   if (drawn.sleeve !== sq) { dyn("section", "sleeve").innerHTML = sleeveSvg({ iso, pathOf }, P, sq); drawn.sleeve = sq; }
 }
+const KIT = { iso, pathOf, solidSvg, fadedSvg, lineSvg, dotsSvg };
+let drawnO = { knob: null, push: null, sleeve: null };
+function drawOrtho(theta, pushed, sh) {
+  const P = D.ort.P;
+  const kq = Math.round(theta * 2) / 2, pq = Math.round(pushed * 10) / 10;
+  if (drawnO.knob !== kq || drawnO.push !== pq) { dyn("ortho", "knob-o").innerHTML = knobO(KIT, G, P, kq, pq); drawnO.knob = kq; drawnO.push = pq; }
+  const sq = Math.round(sh * 200) / 200;
+  if (drawnO.sleeve !== sq) { dyn("ortho", "sleeve-o").innerHTML = sleeveO(KIT, G, P, sq); drawnO.sleeve = sq; }
+}
 
 // ---------- tour: push, turn to LITE, catch, HI, MED, LO, back up, off ----------
 const TOUR = [[0, 0], [1.2, 0], [2.2, 90], [4.6, 90], [5.4, 115], [8.4, 115], [9.6, 190], [12.0, 190], [13.4, 270], [16.6, 270], [17.8, 115], [19.6, 115], [20.8, 0], [23.0, 0]];
@@ -69,7 +78,7 @@ function tick(now) {
   const st = step(sim, knob.x, shutterShown, dt);
   lastSt = st;
   root.style.setProperty("--gb-flow", Math.min(1, sim.flow).toFixed(3));
-  drawSection(knob.x, push.x, st.f, shutterShown);
+  if (view === "section") drawSection(knob.x, push.x, st.f, shutterShown); else drawOrtho(knob.x, push.x, shutterShown);
   say(st);
   render(st, dt, calm);
   frame = visible ? requestAnimationFrame(tick) : 0;
@@ -278,10 +287,120 @@ void main(){
   gl_FragColor=finish(col);
 }`;
 
+
+const FRAG_ORT = GL_COMMON + `
+uniform float uLit,uSpread,uCone,uOuter,uYellow,uSpark,uSeed;
+uniform vec3 uTip,uCrown;
+const vec2 HC=vec2(60.,0.);
+const float PZ=136.5,RC=34.,DELTA=6.2831853/28.,EANG=3.2114;
+// nearest-to-viewer hit of a vertical cylinder with a flat top, or -1e9
+float hitCyl(vec3 p0,vec3 V,float r,float z0,float z1){
+  vec2 o=p0.xy-HC;float a=dot(V.xy,V.xy),b=2.*dot(o,V.xy),c=dot(o,o)-r*r;float disc=b*b-4.*a*c;float best=-1e9;
+  if(disc>0.){float t=(-b+sqrt(disc))/(2.*a);float z=p0.z+t*V.z;if(z>z0&&z<z1)best=max(best,t);}
+  float tt=(z1-p0.z)/V.z;vec2 q=o+tt*V.xy;if(dot(q,q)<r*r)best=max(best,tt);
+  return best;
+}
+vec3 flameAt(vec3 q){
+  vec2 d=q.xy-HC;float rho=length(d);float phi=atan(d.y,d.x);
+  float ki=floor(phi/DELTA+.5);float pk=ki*DELTA;
+  float da=abs(mod(pk-EANG+3.14159265,6.2831853)-3.14159265);
+  float lit=uLit*(1.-smoothstep(uSpread-.05,uSpread+.12,da));
+  if(lit<.002)return vec3(0.);
+  float tg=rho*(phi-pk);
+  float rr=rho-RC,zz=q.z-PZ;
+  float a=rr*.94+zz*.342;
+  float n=-rr*.342+zz*.94;
+  n-=.012*max(a,0.)*max(a,0.);
+  float flick=(noise2(vec2(a*.35-uTime*7.+ki*13.,ki*3.))-.5)*clamp(a,0.,uOuter)*.12;
+  n+=flick;
+  float hin=max(uCone,.01),L=max(uOuter,.3);
+  float s=clamp(a/hin,0.,1.);
+  float e=length(vec2(n/2.,tg/.95));
+  float cone=window(a,0.,hin,.35)*(exp(-pow((e-(1.-s))/.2,2.))+smoothstep(1.-s,1.-s-.25,e)*.2);
+  float t=clamp(a/L,0.,1.);
+  float sw=pow(sin(3.1416*min(1.,t*1.1)),.7);
+  float e2=length(vec2(n/(1.8+2.2*sw+.4*t),tg/(1.+1.7*sw)));
+  float mant=window(a,-.3,L,.6)*smoothstep(1.,.55,e2)*(1.-.7*t);
+  float tip=uYellow*window(a,L*.55,L*1.05,L*.2+.4)*smoothstep(1.,.5,e2)*.75;
+  return vec3(cone,mant,tip)*lit;
+}
+void main(){
+  vec2 vb=viewOf(gl_FragCoord.xy);
+  vec3 V=towardViewer();
+  vec3 p0=rayOf(vb);
+  vec3 fl=vec3(0.);
+  vec2 head=project(vec3(HC,140.));
+  if(uLit>.002&&abs(vb.x-head.x)<95.*uK&&abs(vb.y-head.y)<60.*uK){
+    // each port's flame, drawn in the plane of the screen from its projected base and direction;
+    // a flame point is hidden where the crown or cap is nearer the viewer along this pixel's ray
+    float occ=max(hitCyl(p0,V,RC,122.,140.),hitCyl(p0,V,36.,140.,146.5));
+    // soft coverage of the head's silhouette, so flames end on its outline instead of stepping
+    float pxw=pixelOf();
+    vec2 oo=p0.xy-HC;
+    float tz=(144.-p0.z)/V.z;float rTop=length(oo+tz*V.xy);
+    float covTop=clamp((36.-rTop)*uCam.z/pxw+.5,0.,1.);
+    vec2 vh=normalize(V.xy);float dAxis=abs(oo.x*vh.y-oo.y*vh.x);
+    float covSide=clamp((RC-dAxis)/pxw+.5,0.,1.)*step(occ,1e8)*step(-1e8,occ);
+    float cov=max(covTop,covSide);
+    vec2 pm=vec2(vb.x,-vb.y)/uK;
+    for(int i=0;i<28;i++){
+      float ang=float(i)*DELTA;
+      float c=cos(ang),s=sin(ang);
+      float da=abs(mod(ang-EANG+3.14159265,6.2831853)-3.14159265);
+      float lit=uLit*(1.-smoothstep(uSpread-.05,uSpread+.12,da));
+      if(lit<.002)continue;
+      vec3 B3=vec3(HC.x+RC*c,RC*s,PZ);
+      vec3 d3=vec3(.94*c,.94*s,.342);
+      vec2 b2=project(B3),e2=project(B3+d3)-b2;
+      vec2 base=vec2(b2.x,-b2.y)/uK,dir=vec2(e2.x,-e2.y)/uK;
+      float fore=length(dir);
+      dir/=fore;
+      float am=max(dot(pm-base,dir),0.)/max(fore,.05);
+      vec3 q=B3+d3*min(am,uOuter);
+      float behind=dot(q-p0,V)<max(occ,dot(vec3(HC,PZ+4.)-p0,V))?1.:0.;
+      float hidden=behind*cov;
+      vec4 f=flame2(pm,base,dir,uCone*fore,uOuter*fore,uYellow,lit,float(i));
+      fl+=f.xyz*(1.-hidden);
+    }
+  }
+  vec3 sp=vec3(0.);
+  if(uSpark>.002){
+    vec2 a0=project(uTip),a3=project(uCrown);
+    vec2 a1=mix(a0,a3,.33)+vec2(0.,(hash12(vec2(uSeed,1.))-.5)*1.6*uK);
+    vec2 a2=mix(a0,a3,.67)+vec2(0.,(hash12(vec2(uSeed,2.))-.5)*1.6*uK);
+    float d=1e3;vec2 pa,ba;float h;
+    pa=vb-a0;ba=a1-a0;h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.);d=min(d,length(pa-ba*h));
+    pa=vb-a1;ba=a2-a1;h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.);d=min(d,length(pa-ba*h));
+    pa=vb-a2;ba=a3-a2;h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.);d=min(d,length(pa-ba*h));
+    d/=uK;
+    float core=exp(-pow(d/max(.22,.9*pixelOf()),2.));
+    float halo=exp(-pow(d/1.6,2.))*.35+exp(-pow(d/4.5,2.))*.12;
+    sp=(vec3(.85,.85,1.)*core*1.6+vec3(.55,.45,1.)*halo)*uSpark;
+  }
+  vec4 col;
+  vec3 cone=vec3(.25,.6,1.)*fl.x*1.5,mant=vec3(.32,.36,1.)*fl.y*.55,tip=vec3(1.,.66,.16)*fl.z*1.1;
+  if(uLight<.5){
+    vec3 c=tonemap(cone+mant+tip+sp,1.1);
+    col=vec4(c,max(c.r,max(c.g,c.b)));
+  }else{
+    float ef=fl.x*1.2+fl.y*.5;
+    vec3 seen=mix(vec3(1.),vec3(.1,.38,.98),clamp(fl.y*.55,0.,.6));
+    seen=mix(seen,vec3(.05,.42,1.),clamp(fl.x*.9,0.,.95));
+    seen=mix(seen,vec3(.86,.93,1.),clamp(fl.x*fl.x*.35,0.,.35));
+    seen=mix(seen,vec3(1.,.62,.08),clamp(fl.z*.85,0.,.9));
+    vec4 flame=inkFor(seen,0.)*smoothstep(0.,.08,ef+fl.z);
+    vec3 sseen=mix(vec3(1.),vec3(.42,.3,1.),clamp(length(sp)*.6,0.,.9));
+    sseen=mix(sseen,vec3(.97,.96,1.),clamp(length(sp)*.6-.6,0.,.6));
+    col=over(inkFor(sseen,clamp(length(sp),0.,1.)*.5),flame);
+  }
+  gl_FragColor=finish(col);
+}`;
+
 // ---------- WebGL layers and the render step ----------
 const SEC_U = ["uFlow", "uFront", "uGas", "uPhase", "uHeadPhase", "uWin", "uLit", "uSpread", "uCone", "uOuter", "uYellow", "uSpark", "uSeed", "uShutterX"];
 const secLayer = glLayer({ canvas: views.section.querySelector(".gb-gl"), fragment: FRAG_SEC, view: [D.W, D.H], camera: D.sec.camera, uniforms: SEC_U, fixed: { uLight: LIGHT } });
 if (secLayer) stage.setAttribute("data-gl", "");
+const ortLayer = glLayer({ canvas: views.ortho.querySelector(".gb-gl"), fragment: FRAG_ORT, view: [D.W, D.H], camera: D.ort.camera, uniforms: ["uLit", "uSpread", "uCone", "uOuter", "uYellow", "uSpark", "uSeed"], fixed: { uLight: LIGHT, uTip: D.ort.eTip, uCrown: D.ort.crownAt } });
 const fx = { lit: { x: 0, v: 0 }, cone: { x: 0, v: 0 }, outer: { x: 0, v: 0 }, yellow: { x: 0, v: 0 }, phase: 0, headPhase: 0, sparkAt: -9, seed: 0 };
 render = (st, dt, calm) => {
   const flow = Math.min(1, sim.flow);
@@ -292,8 +411,52 @@ render = (st, dt, calm) => {
   settle(fx.cone, st.cone * 1000 * (sim.lit ? 1 : 0.6), dt, 0.18, calm);
   settle(fx.outer, st.outer * 1000, dt, 0.18, calm);
   settle(fx.yellow, st.yellow, dt, 0.3, calm);
-  const spark = calm ? 0 : burst(clock - fx.sparkAt, 0.012, 0.045);
+  const spark = calm ? 0 : burst(clock - fx.sparkAt, 0.012, 0.075);
   const u = { uFlow: flow, uFront: sim.fill, uGas: 1 / (1 + st.r), uPhase: fx.phase, uHeadPhase: fx.headPhase, uWin: 0, uLit: fx.lit.x, uSpread: sim.spread, uCone: fx.cone.x, uOuter: fx.outer.x, uYellow: fx.yellow.x, uSpark: spark, uSeed: fx.seed, uShutterX: -135 + 13 * shutterShown };
+  root.style.setProperty("--gb-lit", fx.lit.x.toFixed(3));
+  root.style.setProperty("--gb-spark", Math.min(1, spark * 1.5).toFixed(3));
   if (view === "section" && secLayer) secLayer.draw(u, calm ? 0.8 : clock);
+  if (view === "ortho" && ortLayer) ortLayer.draw({ uLit: u.uLit, uSpread: u.uSpread, uCone: u.uCone, uOuter: u.uOuter, uYellow: u.uYellow, uSpark: u.uSpark, uSeed: u.uSeed }, calm ? 0.8 : clock);
 };
 window.__gb = { sim, knob, push, fx, get target() { return target; }, get touring() { return touring; }, get frame() { return frame; }, get visible() { return visible; }, setTarget: (t) => { takeOver(); target = t; run(); }, setShutter: (s) => { shutter = s; shutterIn.value = s; shutterOut.textContent = `${Math.round(s * 100)} %`; run(); } };
+
+// ---------- pan and zoom: wheel zooms about the pointer, drag pans, double-click resets ----------
+const cam = { s: 1, x: 0, y: 0 };
+function applyCam() {
+  const r = stage.getBoundingClientRect();
+  cam.s = Math.min(4, Math.max(1, cam.s));
+  cam.x = Math.min(0, Math.max(r.width * (1 - cam.s), cam.x));
+  cam.y = Math.min(0, Math.max(r.height * (1 - cam.s), cam.y));
+  const t = cam.s === 1 ? "" : `translate(${cam.x.toFixed(1)}px,${cam.y.toFixed(1)}px) scale(${cam.s.toFixed(3)})`;
+  Object.values(views).forEach((v) => (v.style.transform = t));
+  stage.toggleAttribute("data-zoomed", cam.s > 1);
+}
+stage.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey && !e.metaKey && cam.s === 1 && e.deltaY > 0) return;
+  e.preventDefault();
+  const r = stage.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  const s0 = cam.s, s1 = Math.min(4, Math.max(1, s0 * Math.exp(-e.deltaY * 0.0015)));
+  cam.x = px - ((px - cam.x) * s1) / s0;
+  cam.y = py - ((py - cam.y) * s1) / s0;
+  cam.s = s1;
+  applyCam();
+}, { passive: false });
+let drag = null;
+stage.addEventListener("pointerdown", (e) => {
+  if (e.target.closest("button,input") || cam.s === 1) return;
+  drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, id: e.pointerId };
+  stage.setPointerCapture(e.pointerId);
+  stage.setAttribute("data-dragging", "");
+});
+stage.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  cam.x = drag.cx + e.clientX - drag.x;
+  cam.y = drag.cy + e.clientY - drag.y;
+  applyCam();
+});
+const endDrag = (e) => { if (drag && e.pointerId === drag.id) { drag = null; stage.removeAttribute("data-dragging"); } };
+stage.addEventListener("pointerup", endDrag);
+stage.addEventListener("pointercancel", endDrag);
+stage.addEventListener("dblclick", (e) => { if (e.target.closest("button,input")) return; cam.s = 1; cam.x = 0; cam.y = 0; applyCam(); });
+stage.addEventListener("focus", () => { $("[data-live]").textContent = lastSay; });

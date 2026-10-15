@@ -17,7 +17,7 @@ const SEC = buildSection(W, H);
 const secBack = k.figureSvg({
   width: W, height: H, className: "gb-back",
   label: "Section through a gas range burner on a test base: the knob and its stem, the spark switch, the brass plug valve hung from the manifold, the orifice hood firing into the air shutter and the venturi mixing tube, and the burner head with its ports, cap and spark electrode under a cooktop and drip bowl.",
-  body: `${SEC.defs}<g class="far">${SEC.back}</g><g class="cavities">${SEC.cavitySvg}</g><g class="fallback" data-fallback="sec"></g>`,
+  body: `${SEC.defs}<g class="far">${SEC.back}</g><g class="cavities">${SEC.cavitySvg}</g><g class="fallback" data-fallback="sec">${SEC.fallback}</g>`,
 });
 const secFront = `<svg xmlns="http://www.w3.org/2000/svg" class="iso-svg gb-front" viewBox="0 0 ${W} ${H}" aria-hidden="true">${SEC.defs.replace(/id="h-/g, 'id="f-h-').replace(/<defs>[\s\S]*<\/defs>/, "")}<g class="cuts">${SEC.cutsSvg}<g data-dyn="plug">${plugSvg(k, SEC.P, 1)}</g>${SEC.edgesSvg}<g data-dyn="sleeve">${sleeveSvg(k, SEC.P, 1)}</g></g><g data-dyn="knob">${SEC.knob}</g><g class="labels">${SEC.labels}</g></svg>`;
 
@@ -34,7 +34,7 @@ const stage = `<div class="gb-stage" tabindex="0" role="slider" aria-label="Gas 
 </div>`;
 
 const TABS = ["OFF", "LITE", "HI", "MED", "LO"];
-const controls = `<div class="gb-foot"><span class="gb-hint">Click or ← → to turn the knob · drag pans · wheel zooms</span><span class="gb-readout" data-readout>OFF · 0.00 kW</span></div>
+const controls = `<div class="gb-foot"><span class="gb-hint">Click a stage or ← → to turn the knob · wheel zooms, drag pans</span><span class="gb-readout" data-readout>OFF · 0.00 kW</span></div>
 <div class="gb-tabs" role="tablist">${TABS.map((t) => `<button type="button" role="tab" data-stage="${t}" aria-selected="${t === "OFF"}">${t}</button>`).join("")}</div>
 <label class="gb-shutter"><span>Air shutter</span><input type="range" min="0.1" max="1" step="0.01" value="1" data-shutter aria-label="Air shutter opening"><output data-shutter-out>100 %</output></label>`;
 
@@ -62,4 +62,23 @@ for (const theme of ["light", "dark"]) {
   const name = theme === "light" ? "gas-burner.html" : "gas-burner-dark.html";
   writeFileSync(join(HERE, name), page);
   console.log("wrote", name, `${(page.length / 1024).toFixed(0)} KB`);
+}
+
+// ---------- the same page as an Artifact body: follows the viewer's theme, no document skeleton of its own ----------
+{
+  const page = readFileSync(join(HERE, "gas-burner.html"), "utf8");
+  const head = page.match(/<head>([\s\S]*?)<\/head>/)[1].replace(/<meta[^>]*>/g, "").replace(/<title>[^<]*<\/title>/, "");
+  const inner = page.match(/<body[^>]*>([\s\S]*)<\/body>/)[1];
+  const shell = `<style>
+:root{--gb-page:#f2f2ef}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--gb-page:#0b0b0b;color-scheme:dark}}
+:root[data-theme="dark"]{--gb-page:#0b0b0b;color-scheme:dark}
+body{background:var(--gb-page);margin:0}
+.iso-root{background:var(--anatomy-page);min-height:100%;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:8px}
+.iso-root .gb-head,.iso-root .iso-figure.gb{padding-left:0;padding-right:0}
+</style>`;
+  const pick = `<script>(function(){var r=document.documentElement.getAttribute("data-theme");var dark=r?r==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("gb-root").setAttribute("data-theme",dark?"dark":"light");})();</script>`;
+  const art = `<title>Kitchen Gas Burner</title><meta name="claude:viewport-fit-sides" content="cover">${head}${shell}<div class="iso iso-root" id="gb-root" data-theme="light">${pick}${inner}</div>`;
+  writeFileSync(join(HERE, "artifact.html"), art);
+  console.log("wrote artifact.html", `${(art.length / 1024).toFixed(0)} KB`);
 }

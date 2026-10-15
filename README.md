@@ -1,8 +1,26 @@
 # How a Kitchen Gas Burner Works
 
-An interactive engineering figure of a domestic gas range burner, from ignition to flame, built with the [Anatomy](https://github.com/wheresryan22/anatomy) skill. Work in progress.
+An interactive engineering figure of a domestic gas range burner, from ignition to flame, built with the [Anatomy](https://github.com/wheresryan22/anatomy) skill.
 
-The figure will follow the real sequence: push and turn the knob to LITE, the plug valve opens and the spark switch on its stem closes, gas leaves the orifice as a jet, the venturi pulls in primary air through the air shutter, the mixture reaches the ports, the electrode's spark lights it, and the flame runs round the ring. Two views: a SECTION cut through the valve, orifice, venturi and head, and an ORTHO isometric of the whole burner rig.
+**Live:** [vinayanand3.github.io/gas-stove](https://vinayanand3.github.io/gas-stove/) (light) · [dark](https://vinayanand3.github.io/gas-stove/gas-burner-dark.html) — once GitHub Pages is enabled for this repo.
+
+It follows the real sequence: push and turn the knob to LITE, the plug valve opens and a cam on its stem closes the spark switch, gas leaves the orifice as a jet, the venturi pulls in primary air through the air shutter, the mixture reaches the ports, the electrode's spark lights it, and the flame runs round the ring. Two views:
+
+- **SECTION**: a side elevation cut on the burner's centre plane, with hatched cut faces by material and labels on leaders. A WebGL layer shows the amber gas jet, blue entrained air through the shutter window, the mixture rising through the head, the flames at the ports and the spark.
+- **ORTHO**: the whole rig in isometric on its test base: knob and panel with detent marks, valve hung from the manifold with its regulator, orifice hood in the shutter collar, venturi under the cooktop, burner head with ports, cap and electrode in the drip bowl, spark module and leads. Flames are drawn per port in the same camera, hidden behind the crown and cap.
+
+Controls: stage tabs OFF · LITE · HI · MED · LO (or ← →, Space toggles LITE), an air-shutter slider, wheel to zoom and drag to pan, double-click to reset. An inset reads the orifice pressure; the readout gives phase, kW, Btu/h and primary air. Turn straight past LITE and it won't light: the spark needs the mixture to have reached the ports, just as on a real range.
+
+## Files
+
+| File | What it is |
+|---|---|
+| `model.mjs`, `test-model.mjs` | The physics and its checks |
+| `parts.mjs` | Shared dimensions (mm) |
+| `section.mjs`, `ortho.mjs` | The two views |
+| `live.js`, `style.css` | Page behaviour, shaders, styling |
+| `build.mjs` | `node build.mjs` writes `gas-burner.html`, `gas-burner-dark.html` and `artifact.html` (needs `npm install` for polygon-clipping) |
+| `kit/`, `scripts/` | The Anatomy kit and its capture and line-end checks |
 
 ## The model (`model.mjs`)
 

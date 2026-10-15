@@ -48,14 +48,25 @@
 .lbl text{font-family:var(--anatomy-sans,system-ui,-apple-system,"Segoe UI",sans-serif);font-size:10.5px;fill:var(--gb-label);letter-spacing:.01em}
 .leader{fill:none;stroke:var(--gb-leader);stroke-width:.6;stroke-dasharray:1.2 2}
 .leader-dot{fill:var(--anatomy-paper);stroke:var(--gb-label);stroke-width:.7}
-.fallback .fl-in{fill:#3d7bff;opacity:.9}
-.fallback .fl-out{fill:#6a8cff;opacity:.35}
-.fallback .fl-spark{fill:none;stroke:#7a6cff;stroke-width:1.1}
+.fallback .fl-flames{opacity:var(--gb-lit,0)}
+.fallback .fl-in{fill:#2f6bff;fill-opacity:.85;mix-blend-mode:multiply}
+.fallback .fl-out{fill:#5f84ff;fill-opacity:.35;mix-blend-mode:multiply}
+.iso[data-theme="dark"] .fallback .fl-in,.iso[data-theme="dark"] .fallback .fl-out{mix-blend-mode:screen}
+.fallback .fl-spark{fill:none;stroke:#6a54ff;stroke-width:1.2;opacity:var(--gb-spark,0)}
+.gb-view{transform-origin:0 0;will-change:transform}
+.gb-stage[data-zoomed]{cursor:grab}
+.gb-stage[data-dragging]{cursor:grabbing}
 
 /* materials for solids behind the cut and in the ortho view */
 .m-ceramic{--anatomy-hi:var(--anatomy-hi)}
 .w-ht .tb-body{fill:var(--anatomy-paper)}
 .w-lead .tb-body{fill:var(--anatomy-paper)}
+
+/* ortho details */
+.window{fill:var(--gb-cavity-deep);stroke:none}
+.port{fill:var(--gb-cavity-deep);stroke:var(--anatomy-mid);stroke-width:.35}
+.gb{--gb-cavity-deep:#7d8796}
+.iso[data-theme="dark"] .gb{--gb-cavity-deep:#05080e}
 
 /* ---------- inset instrument, toggle ---------- */
 .gb-inset{position:absolute;left:14px;top:12px;padding:8px 12px 9px;border:1px solid var(--anatomy-faint);background:var(--anatomy-card);border-radius:6px;min-width:150px;pointer-events:none}
@@ -81,4 +92,17 @@
 .gb-shutter input{flex:1;accent-color:#e2533b}
 .gb-shutter output{min-width:42px;text-align:right;color:var(--anatomy-strong);font-variant-numeric:tabular-nums}
 .gb-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-@media (max-width:560px){.gb-inset{transform:scale(.8);transform-origin:0 0}.gb-toggle{transform:scale(.85);transform-origin:100% 0}.gb-hint{display:none}.lbl text{font-size:13px}}
+@media (max-width:560px){
+  .gb .iso-plate{padding:14px 12px 14px}
+  .gb-stage{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px}
+  .gb-inset,.gb-toggle{position:relative;z-index:2;order:1}
+  .gb-view[data-view="section"]{margin-top:-16%}
+  .gb-inset{min-width:0;padding:6px 10px}
+  .gb-inset-v span{font-size:18px}
+  .gb-view{flex:1 1 100%;order:2;margin:0 -6px}
+  .labels{display:none}
+  .gb-hint{display:none}
+  .gb-foot{justify-content:flex-end}
+  .gb-readout{font-size:10.5px}
+  .gb-tabs{gap:4px}
+}

@@ -176,9 +176,9 @@ export function buildSection(W, H) {
 
   // ---------- labels on leaders, in two rows above the drawing ----------
   const LABELS = [
-    ["Knob", -240, ZT + 22, 1],
-    ["Spark switch", -211, ZT + D.SWITCH.r, 0, "end"],
-    ["Plug valve", -186, ZT + V.r, 1],
+    ["Knob", -240, ZT + 22, 1, "end"],
+    ["Spark switch", -211, ZT + D.SWITCH.r, 1],
+    ["Plug valve", -186, ZT + V.r, 0, "end"],
     ["Manifold", D.MANIFOLD.x + 4, D.MANIFOLD.z + D.MANIFOLD.r, 0, "start"],
     ["Orifice", D.HOOD.tip + 0.6, ZT + D.HOOD.tipR[1], 0],
     ["Air shutter", -128, ZT + D.SLEEVE.rOut, 1],
@@ -200,6 +200,14 @@ export function buildSection(W, H) {
   const HATCH = { alu: [45, 3.2], brass: [-45, 2.4], brass2: [45, 2.0], steel: [45, 2.0], enamel: [-45, 3.2], sheet: [90, 2.0], plastic: [-45, 4.2], copper: [0, 1.6], base: [45, 5] };
   const defs = `<defs>${Object.entries(HATCH).map(([m, [ang, gap]]) => `<pattern id="h-${m}" patternUnits="userSpaceOnUse" width="${gap}" height="${gap}" patternTransform="rotate(${ang})"><rect class="h-bg h-${m}" width="${gap}" height="${gap}"/><line class="h-ln" x1="0" y1="0" x2="0" y2="${gap}"/></pattern>`).join("")}</defs>`;
 
+  const flameAt = (x0, sgn) => {
+    const pts = [];
+    for (let i = 0; i <= 16; i++) { const t = i / 16; const a = 18 * t; const w = 2.2 + 3.2 * Math.sin(Math.PI * Math.min(1, t * 1.1)) ** 0.7; pts.push([x0 + sgn * a * 0.94, D.PORTS.zMid + a * 0.34 + 0.012 * a * a + w]); }
+    for (let i = 16; i >= 0; i--) { const t = i / 16; const a = 18 * t; const w = 2.2 + 3.2 * Math.sin(Math.PI * Math.min(1, t * 1.1)) ** 0.7; pts.push([x0 + sgn * a * 0.94, D.PORTS.zMid + a * 0.34 + 0.012 * a * a - w]); }
+    const cone = [[x0, D.PORTS.zMid + 1.9], [x0 + sgn * 9.6 * 0.94, D.PORTS.zMid + 9.6 * 0.34 + 1.1], [x0, D.PORTS.zMid - 1.9]];
+    return `<path class="fl-out" d="${k.pathOf(ring(pts), true)}"/><path class="fl-in" d="${k.pathOf(ring(cone), true)}"/>`;
+  };
+  const fallback = `<g class="fl-flames">${flameAt(hx - H_.rCrown, -1)}${flameAt(hx + H_.rCrown, 1)}</g><path class="fl-spark" d="${k.pathOf(ring([[eTip[0], D.PORTS.zMid], [eTip[0] + 1.2, D.PORTS.zMid + 0.7], [eTip[0] + 2.3, D.PORTS.zMid - 0.6], [hx - H_.rCrown, D.PORTS.zMid]]))}"/>`;
   const DATA = {
     P, KS, ZT,
     tube: { plate: D.TUBE.plate, xEnd: X_END },
@@ -209,7 +217,7 @@ export function buildSection(W, H) {
     sleeve0: D.sleeveAt(1),
     origin: at(0, 0),
   };
-  return { P, defs, back: back.join(""), cavitySvg, cutsSvg, edgesSvg, knob, labels, DATA, at };
+  return { P, defs, fallback, back: back.join(""), cavitySvg, cutsSvg, edgesSvg, knob, labels, DATA, at };
 }
 
 // the knob seen from the side: body with knurls, skirt, and the grip fin turned to `theta` degrees
@@ -219,7 +227,7 @@ export function knobSvg(k, G, P, theta, push) {
   const F = G.frameOf([-push, 0, ZT], [1, 0, 0], [0, 0, 1], [0, 1, 0]);
   const S = (paths, cls) => k.solidSvg(paths, { tone: "hi", className: cls, lit: true });
   let out = S(G.solidOf([[K.back - 4, K.skirt], [K.back, K.skirt], [K.back, K.r], [K.face + 2, K.r, 1], [K.face, K.r - 2.4, 1], [K.face, 0]], F, P), "m-knob");
-  out += k.fadedSvg(G.ribsOf(F, K.face + 4, K.back - 1, K.r, 40, P, { fade: [0.1, 0.55] }), { tone: "lo" });
+  out += k.fadedSvg(G.ribsOf(F, K.face + 4, K.back, K.r, 40, P, { fade: [0.1, 0.55], seams: "first" }).filter((rib) => (rib.alpha ?? rib[1] ?? 1) >= 0.5), { tone: "lo" });
   // the fin seen side-on: its height on screen follows the knob angle
   const t = (theta * Math.PI) / 180;
   const half = Math.abs(Math.cos(t)) * K.finR + Math.abs(Math.sin(t)) * (K.finT / 2);

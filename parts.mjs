@@ -65,7 +65,7 @@ export const BOWL = { rOuter: 74, rInner: 52, zLow: 110, t: 1.2 };
 export const ELECTRODE = { angle: 184, rIns: 44, rTip: 37.6, z0: 94, z1: 126, insR: 3.2, wireR: 0.6, tipZ: PORTS.zMid };
 
 // base and stands
-export const BASE = { x: -290, y: -112, w: 476, d: 224, r: 8, z: -10 };
+export const BASE = { x: -290, y: -112, w: 476, d: 196, r: 8, z: -10 };
 export const MODULE = { x: -74, y: -88, w: 52, d: 32, h: 24 };
 export const REG = { x: -178, y: 52, z0: 30, z1: 84, r: 13 };
 export const POSTS = {
@@ -77,3 +77,4 @@ export const POSTS = {
 
 export const HEAD_AXIS = [HEAD.x, 0];
 export const polar = (deg, r, z) => [HEAD.x + r * Math.cos((deg * Math.PI) / 180), r * Math.sin((deg * Math.PI) / 180), z];
+export const DETENT_MARKS = { max: 270 };
